@@ -86,6 +86,7 @@ router.get("/:chatId", routeAuth, checkChatAccess, async (req, res) => {
     try {
         console.log("Fetching messages for chatId:", req.params.chatId);
         const messages = await ChatController.getChatMessages(req.params.chatId);
+        console.log("message:", messages)
         res.json(messages);
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch messages" });

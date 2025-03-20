@@ -6,6 +6,7 @@ const connectDB = require("./config/db");
 const chatRoutes = require("./routes/chatRoutes");
 const ChatController = require("./controllers/chatController");
 const { socketAuth } = require("./middleware/auth");
+const amqp = require("amqplib");
 require("dotenv").config();
 
 const app = express();
@@ -40,6 +41,22 @@ connectDB();
 app.use(express.json());
 app.use("/chat", chatRoutes);
 
+// Publish to RabbitMQ
+async function publishToRabbitMQ(event, data) {
+    try {
+        const conn = await amqp.connect("amqp://guest:guest@localhost:5672");
+        const ch = await conn.createChannel();
+        const queueName = `${event}_queue`;
+        await ch.assertQueue(queueName);
+        await ch.sendToQueue(queueName, Buffer.from(JSON.stringify(data)));
+        await ch.close();
+        await conn.close();
+        console.log(`Published to ${queueName}:`, data);
+    } catch (err) {
+        console.error(`Failed to publish to RabbitMQ: ${err}`);
+    }
+}
+
 io.use(socketAuth);
 
 io.on("connection", (socket) => {
@@ -63,6 +80,14 @@ io.on("connection", (socket) => {
         const savedMessage = await ChatController.saveMessage(message);
 
         if (savedMessage) {
+            const notiData = {
+                user_id: receiverId,
+                type: "chat",
+                message: content,
+                related_id: savedMessage._id.toString(),
+                chatId: savedMessage.chatId,
+            };
+            await publishToRabbitMQ("chat", notiData);
             // io.to(receiverId).emit("receiveMessage", savedMessage);
             // socket.emit("messageSent", savedMessage);
             io.to(chatId).emit("receiveMessage", savedMessage);
@@ -81,5 +106,5 @@ io.on("connection", (socket) => {
     });
 });
 
-const PORT = process.env.CHAT_PORT || process.env.PORT || 5000;
+const PORT = process.env.PORT;
 server.listen(PORT, () => console.log(`Chat Service running on port ${PORT}`));

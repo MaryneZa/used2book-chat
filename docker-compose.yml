@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: used2book_mongodb_chat
+    ports:
+      - "27017:27017" # Maps MongoDB default port to host
+    volumes:
+      - mongodb_data:/data/db # Persists data locally
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: chat_user # Optional: Set root username
+      MONGO_INITDB_ROOT_PASSWORD: chat_password # Optional: Set root password
+    restart: unless-stopped
+
+volumes:
+  mongodb_data: # Named volume for persistent storage
